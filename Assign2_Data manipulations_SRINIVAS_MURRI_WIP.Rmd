@@ -1,0 +1,383 @@
+---
+title: 'IMT573 Problem Set 2: Data manipulations'
+author: "Srinivas Murri"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    highlight: tango
+  html_document:
+    df_print: paged
+urlcolor: blue
+---
+
+## Install required packages and Libraries
+
+```{r Installing Required Packages}
+## installing package nycflights13 to get NYC Flights 2013 data.
+##install.packages("nycflights13")
+## importing the packages in to current session , Load some helpful libraries
+library(nycflights13)
+
+library(tidyverse) 
+
+library(tinytex) ##to knit the file to PDF format
+```
+
+## Load data in to Data Frame
+
+```{r Load 2013 NYC flights Data}
+data(flights,package="nycflights13")
+# Note: this is correct on the server
+# Note: can read compressed files directly
+```
+
+Loaded the data in to the data frame "flights"
+
+## Head Sample data
+```{r Sample Top Records}
+## here your code for inspecting data
+## you may add more code chunks as needed
+# Sample Data
+head(flights)
+```
+
+## Tail Sample data
+```{r Sample Bottom Records}
+## here your code for inspecting data
+## you may add more code chunks as needed
+# Sample Data
+tail(flights)
+```
+
+## Inspect data
+```{r Data details}
+## size of the data frame
+dim(flights)
+## column names
+colnames(flights)
+## Count of Rows in each column with NA rows
+colSums(is.na(flights))
+## Column wise datatype
+sapply(flights, typeof)
+
+```
+
+### Data Set , Variabe NA value counts and Data types
+
+NO	Names	    Count_NA	data_type
+1	  year		            int
+2	  month		            int
+3	  day		              int
+4	  dep_time	    8255	int
+5	  sched_dep_time		  int
+6	  dep_delay	    8255	doub
+7	  arr_time	    8713	int
+8	  sched_arr_time  		int
+9	  arr_delay	    9430	doub
+10  carrier		          char
+11	flight		          int
+12	tailnum	      2512	char
+13	origin		          char
+14	dest		            char
+15	air_time	    9430	doub
+16	distance		        doub
+17	hour		            doub
+18	minute		          doub
+19	time_hour		        doub
+
+
+
+### Summary stats of the dataset variables
+
+```{r summary}
+summary(flights,4)
+```
+
+## 1.1 Explore the data:
+
+First, let's do some data exploration. Answer the following questions: show the code, the computation
+result, and comment the results in the accompanxying text.
+
+### 1. How many fligts out of NYC are there in the data?
+
+``` {r NYC flight count}
+
+flights %>% 
+##group_by(origin) %>%
+summarize(No_of_flts = length(flight) , No_of_uniq_flts = length(unique(flight))) %>%
+arrange(desc(No_of_flts))
+
+
+
+```
+
+_There are total 336776 Flights in 2013 from NYC airports and 3844	unique flights that operated from NYC airports_
+
+### 2. How many NYC airports are included in this data? Which airports are these?
+
+``` {r NYC airports count}
+flights %>% 
+##group_by(origin) %>%
+select(origin) %>%
+unique() 
+
+```
+
+_There are total 3 airports in NYC_
+
+### 3. Into how many airports did the airlines fly from NYC in 2013?
+``` {r NYC dest count}
+flights %>% 
+select(dest) %>%
+unique() %>%
+count()
+
+```
+
+_There are 105 airports destinations from NYV airports_
+
+### 4. How many flights were there from NYC to Seattle (airport code SEA)?
+``` {r SEA flights count}
+
+flights %>% 
+filter(dest == "SEA") %>%
+summarize(No_of_SEA_flts = length(flight) , No_of_SEA_U_flts = length(unique(flight)))
+
+```
+
+_Therea 3923 total flights to SEA and 166 unique operators_
+
+### 5. Were the any flights from NYC to Spokane (GAG)?
+
+``` {r flights to Spokane count}
+
+flights %>% 
+filter(dest == "GAG") %>%
+select(flight) %>%
+count() 
+
+```
+
+_No flights tp Spokane from NYC_
+
+### 6. What about missing destination codes? Are there any destinations that do not look like valid airport codes (three-letter-all-upper case)?
+```{r Bad data in Dest Variable}
+flights %>% 
+select(dest) %>%
+filter( dest != toupper(dest) | str_length(dest) != 3 )
+```
+
+_No destination codes missing in data set or no invalid values_
+
+### 7. Comment the questions (and answers) so far. Were you able to answer all of these questions? Are all questions well defined? Is the data good enough to answer all these?
+
+* Provided answers question wise
+* Yes, able to
+* Yes, well defined
+* Yes, Data set is good enough
+
+
+
+
+## 1.2 Flights are delayed...Flights are often delayed. Let's look at closer at that.
+
+### 1. What is the typical delay of the flights in this data?
+
+``` {r NYC delay mean}
+mean(filter(flights,dep_delay >0)$dep_delay, na.rm=TRUE)
+```
+_The typical delay is over all mean of positive departure delay and is 39.373_
+
+
+### 2. Did you remember to check how good is the delay variable? Are there missings? Are there any implausible or invalid entries? Go and check this.
+
+``` {r NYC NA check}
+flights %>% 
+filter(is.na (dep_delay) == TRUE) %>%
+count()
+
+```
+
+_There are 8255 invalid entries in variable "dep_delay"_
+
+
+### 3. Now compute the delay by destinations. Which ones are the worst three destinations in terms of the longest delay?
+
+```{r dest wise delay}
+flights %>% 
+filter(arr_delay > 0) %>%
+group_by(dest) %>%
+summarize(delay=mean(arr_delay)) %>%
+arrange(desc(delay)) %>%
+head(3)
+```
+
+_TVC , TUL , worst three destinations in terms of the longest delay_
+
+
+### 4. Delays may be partly related to weather. We do not have weather information here but let's analyzehow it is related to season. Do it in two (or more) ways: one graphical, and one in a table form. Hint: you may want to create a date variable.
+
+```{r monthly dep delays}
+## created a data frame monthly maen flight dep delay 
+monfltdel <- flights %>% 
+filter(dep_delay > 0) %>%
+group_by(month , day) %>%
+summarize(delay=mean(dep_delay) , delaycnt=length(dep_delay)) %>%
+arrange(month)
+
+head(monfltdel)
+
+#dayfltdel <- data.frame ( monthday = paste( factor(monfltdel$month), monfltdel$day , sep="") , delay =monfltdel$delay)
+
+#head(dayfltdel)
+
+
+ggplot(monfltdel, aes(x = factor(month), y = scale(delay, center = TRUE, scale = FALSE) ))+
+  geom_bar(size = 0.1, color = "steelblue", fill = "steelblue",
+           stat = "identity")+
+  geom_smooth(size = 0.1, color = "red")+
+  labs(x ="MonthDay",
+       y =  "Dep delay mean" ,
+       title = "Month wise dep delay")
+```
+
+
+_Seasonal delay , We can see there are more delays in months of June and July_
+
+
+### 5. We'd also like to know how much do delays depend on the time of day. Are there more delays infoggy morning hours? Late night when all the daily delays may accumulate? Create a visualization (graph or table) using a different approach than what you did above.
+
+```{r Time wise delay}
+timfltdel <- flights %>% 
+filter(dep_delay > 0) %>%
+group_by(time = round(sched_dep_time/100)) %>%
+summarize(delay=mean(dep_delay) , delaycnt=length(dep_delay))  %>% arrange(time)
+
+head(timfltdel)
+
+## number of flight delays and more between 4 PM and 10 PM
+ggplot(timfltdel, )+
+  geom_bar(mapping = (aes(x = time, y = delay )),
+           size = 0.2 , color = "steelblue" ,fill = "steelblue", stat = "identity")+
+  geom_line(mapping = (aes(x = time, y = delay  )),
+               size = 1 , color = "darkred" , stat = "identity")+
+    labs(x ="Hour Time",
+       y =  "Dep delay mean" ,
+       title = "Hourly dep delay")
+  
+
+```
+
+_we can see clearly , The delay is more during the evening hours after 4 PM_
+
+
+### 6. Do you see any problems with these questions (and answers)?
+
+_No, All the questions are reasonable , however with many missing values in delay variable the reliblity of the variable and analysis is not accurate to reality_
+
+
+
+
+## 1.3 Let's fly to Portland! Finally, let's see how the flights from NYC to Portland, OR (airport code PDX) go.
+
+
+### 1. How many flights were there from NYC airports to Portland in 2013?
+
+```{r portland flights}
+flights %>% 
+filter(dest == "PDX") %>%
+summarize(No_of_PDX_flts = length(flight) , No_of_PDX_U_flts = length(unique(flight)))
+```
+_There are 1354 flights and 77 unique flights from NYC to Portland_
+
+
+### 2. How many airlines fly from NYC to Portland?
+
+```{r portland carriers}
+flights %>% 
+filter(dest == "PDX") %>%
+summarize(No_of_PDX_Carriers = length(unique(carrier)))
+```
+_3 Unique carriers operating to PDX_
+
+
+### 3. Which are these airlines (find the 2-letter abbreviations)? How many times did each of these go to Portland?
+```{r portland carriers trips}
+flights %>% 
+filter(dest == "PDX") %>%
+group_by(carrier) %>%
+summarize(No_of_trips = length(carrier))
+```
+
+_Carrier wise trips in year 2013 listed_
+
+
+### 4. How many unique airliners fly from NYC to PDX? Hint: airplane tail number is a unique identifier of an airplane.
+
+```{r portland tailnum}
+flights %>% 
+filter(dest == "PDX") %>%
+summarize(unique_airliners = length(unique(tailnum)))
+```
+
+_unique airliners fly from NYC to PDX is 492_
+
+
+### 5. How many different airplanes arrived from each of the three NYC airports to Portland?
+```{r portland tailnum NYC ap}
+flights %>% 
+filter(dest == "PDX") %>%
+group_by(origin) %>%
+summarize(unique_airliners = length(unique(tailnum)))
+```
+
+_Only 2 airports in NYC operating to Portland and listed the number of airplanes arrived from each of the three NYC airports to Portland_
+
+
+### 6. What percentage of flights to Portland were delayed at departure by more than 15 minutes?
+```{r portland PDX NYC dep}
+del <- flights %>% 
+filter(dest == "PDX") %>%
+filter(dep_delay > 15) %>% 
+summarize(del = length(flight))
+
+tot <- flights %>% 
+filter(dest == "PDX") %>%
+summarize(tot = length(flight))
+
+(del$del/tot$tot)*100
+
+```
+
+_26.66 % of the flights going to PDX get delayed for more than 15 mins at departure _ 
+
+
+### 7. And finally answer the question above for each origin airport separately. Is one of the airports noticeably worse than others?
+
+```{r Airport wise delay}
+flights %>% 
+group_by(dest) %>%
+filter(is.na (dep_delay) == FALSE) %>%
+summarize (per_del = sum(dep_delay > 15) / length(flight) *100) %>%
+arrange(desc(per_del)) %>%
+head(10)
+```
+
+_Top 10 worst destinations in terms of departure delay listed, First 2 ,JAC and SBN are equally bad in terms of departure delay_
+
+
+## 1.4 Think about all this Finally, think about the questions and the analysis.
+
+### 1. Do you see any issues with data
+
+_There are many NA values in data set and so the inferences can not be reliable_
+
+
+### 2. Ethical concerns?
+
+_No serious concerns as the data is not related to personal, however the airlines, carriers and schedule details of the flights operaing from NYC is sensetive in terms of airport and airlines security . We shoud be more careful while dealing with this kind of domain _
+
+
+### 3. Can these questions be answered? Are these questions meaningful?
+
+_Questions are meaning ful and can be answered, however due to the missing values the answers may not be completely reliable_

@@ -1,0 +1,272 @@
+---
+title: 'IMT 573 Assignment 1 - Exploring data'
+author: "Srinivas Murri"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    highlight: tango
+  html_document:
+    df_print: paged
+urlcolor: blue
+---
+
+## Install required packages and Libraries
+
+```{r Installing Required Packages}
+## installing package nycflights13 to get NYC Flights 2013 data.
+##install.packages("nycflights13")
+## importing the packages in to current session , Load some helpful libraries
+library(nycflights13)
+
+library(tidyverse) 
+
+library(tinytex) ##to knit the file to PDF format
+```
+
+## Load data in to Data Frame
+
+```{r Load 2013 NYC flights Data}
+data(flights,package="nycflights13")
+# Note: this is correct on the server
+# Note: can read compressed files directly
+```
+
+Loaded the data in to the data frame "flights"
+
+## Head Sample data
+```{r Sample Top Records}
+## here your code for inspecting data
+## you may add more code chunks as needed
+# Sample Data
+head(flights)
+```
+
+## Tail Sample data
+```{r Sample Bottom Records}
+## here your code for inspecting data
+## you may add more code chunks as needed
+# Sample Data
+tail(flights)
+```
+
+## Inspect data
+```{r Data details}
+## size of the data frame
+dim(flights)
+## column names
+colnames(flights)
+## Count of Rows in each column with NA rows
+colSums(is.na(flights))
+## Column wise datatype
+sapply(flights, typeof)
+
+```
+The below variables have values NA, Corresponding NA count:
+
+dep_time	8255
+dep_delay	8255
+arr_time	8713
+arr_delay	9430
+tailnum	2512
+air_time	9430
+
+
+### Summary stats of the dataset variables
+```{r summary}
+summary(flights,4)
+```
+
+
+```{r histograms of delays}
+hist((flights %>% filter(arr_delay != 0) %>% select(arr_delay))$arr_delay,
+main="Arrival Delay",
+xlab="Arrival",
+col="darkmagenta",
+freq= FALSE,
+breaks=200,
+xlim=c(-100,100),  ylim=c(0, .02)
+)
+
+## Arrival delay is Normal
+
+hist((flights %>% filter(dep_delay != 0) %>% select(dep_delay))$dep_delay,
+main="Dep Delay",
+xlab="Departure",
+col="darkmagenta",
+freq= FALSE,
+breaks=200,
+xlim=c(-100,100),  ylim=c(0, .02)
+)
+  
+hist((flights$dep_time+flights$arr_time)/200 ,
+main="Departure Hours",
+xlab="Dep Time",
+col="Yellow",
+freq= FALSE,
+breaks=50,
+xlim=c(0,25),  ylim=c(0, .1)
+)
+## Airport is busy from 6:00 AM to 11:00 PM
+```
+
+## Listed Findings
+
+### Findings
+
+1. Arrival delay is nearly Normal, Most of the Arrival delay is towards negative also. Arrivals are earlier than scheduled
+2. Departure delay is Skewed , Many Dep delays are also negative means departured before scheduled. However, most of the departure delays are spread towards postive and number of flights delayed lessens with duration of delay
+3. Number of flights between 6 Am and 11 PM are spread even accross the day and the distribution is nearly Uniform
+
+
+
+```{r Arrival delay vs Dep delay}
+
+##DEP Delay vs ARR Delay
+ggplot(flights %>% filter(dep_delay <1000), 
+       aes(x = dep_delay/60, y = arr_delay/60)) +
+  geom_point( color = "magenta" , alpha = 0.1) +
+  geom_smooth( color = "blue" , alpha = 0.5 , size=0.2) +
+  labs(x ="Dep Delay in Hrs",
+       y =  "Arr Delay in Hrs" ,
+       title = "Dep vs Arr Plot")
+## More the departure delay, more the Arrival delay
+```
+
+### Findings
+We have negative delays also ,but most of the delays are positive and less. There are occassions where the delay is beyond 10 hours also.
+The Arrival delay is directly influenced by Departure delay and they are linearly dependent . The more the departure delay, the more the arrival delay
+
+
+```{r monthly dep delays}
+## created a data frame monthly maen flight dep delay 
+monfltdel <- flights %>% 
+filter(dep_delay > 0) %>%
+group_by(month) %>%
+summarize(delay=mean(dep_delay) , delaycnt=length(dep_delay)) %>%
+arrange(month)
+
+head(monfltdel)
+
+ggplot(monfltdel, aes(x = factor(month), y = delay ))+
+  stat_smooth( color = "red" , alpha = 1) +
+  geom_point(size = 4, color = "red")+
+  geom_bar(size = 0.1, color = "grey", fill = "steelblue",
+           stat = "identity")+
+  labs(x ="Month",
+       y =  "Dep delay mean" ,
+       title = "Month wise dep delay")
+```
+
+### Findings
+From the above Bar chart , we can see most of the delays are in the months of June and July . Less delays in November. As dep delay and arr delay and linearly dependent. we can say arrival delays are also more in June and July
+
+
+```{r Time wise delay}
+timfltdel <- flights %>% 
+filter(dep_delay > 0) %>%
+group_by(time = round(sched_dep_time/100)) %>%
+summarize(delay=mean(dep_delay) , delaycnt=length(dep_delay))  %>% arrange(time)
+
+head(timfltdel)
+
+## number of flight delays and more between 4 PM and 10 PM
+ggplot(timfltdel, )+
+  geom_bar(mapping = (aes(as.character(x = time), y = scale(delay,1) )),
+           size = 0.2 , color = "red" ,fill = "steelblue", stat = "identity")+
+    geom_point(mapping = (aes(as.character(x = time), y = scale(delaycnt,1)  )),
+               size = 4 , color = "red" ,fill = "red", stat = "identity")+
+    labs(x ="Hour Time",
+       y =  "Dep delay mean" ,
+       title = "Hourly dep delay")
+  
+
+## number of delay vs mean of delay .. more the number of flights delayed, more the average delay  time
+ggplot(timfltdel )+
+  geom_point(mapping = aes(x = delaycnt, y = delay),size = 2 , color = "darkblue")+
+  geom_smooth(mapping = aes(x = delaycnt, y = delay),size = 0.2 , color = "red")+
+  labs(x ="Flight delayed count",
+       y =  "Dep delay mean" ,
+       title = "Busy vs Delay")
+
+```
+
+### Findings
+
+* From the above Bar chart , we can see most of the delays are between 4Pm and 10 PM.
+* From Scatter plot we can say more the flights more the delays. not straight dependency but from smoothing we can see there is some dependency on delay with Busy
+
+
+```{r data frames}
+## carrier wise dep delay
+carifltdd <- flights %>% 
+filter(dep_delay > 0) %>%
+group_by(carrier) %>%
+summarize(ddelay=mean(dep_delay) )  %>% arrange(desc(ddelay))
+
+head(carifltdd)
+
+## carrier wise arr delay
+carifltad <- flights %>% 
+filter(arr_delay > 0) %>%
+group_by(carrier) %>%
+summarize(adelay=mean(arr_delay) )  %>% arrange(desc(adelay))
+
+head(carifltad)
+
+## destination wise arr delay
+destarrdel <- flights %>% 
+filter(arr_delay > 0) %>%
+group_by(dest) %>%
+summarize(adelay=mean(arr_delay) )  %>% arrange(desc(adelay))
+
+head(destarrdel)
+
+## destination wise dep delay
+destdepdel <- flights %>% 
+filter(dep_delay > 0) %>%
+group_by(dest) %>%
+summarize(ddelay=mean(dep_delay) )  %>% arrange(desc(ddelay))
+
+head(destdepdel)
+
+########################################################## PLOTS of above data sets
+
+## carrier wise dep delay
+ggplot( )+
+  geom_bar(carifltdd ,mapping = (aes(   reorder(x=carrier,-ddelay) , y = ddelay  )),
+           size = 0.1 , color = "white" ,fill = "green", stat = "identity")+
+  labs(x ="Carrier",
+       y =  "Dep delay mean" ,
+       title = "Carrier wise dep delay")
+
+## carrier wise arrival delay
+ggplot( )+
+  geom_bar(carifltad ,mapping = (aes(   reorder(x=carrier,-adelay) , y = adelay  )),
+           size = 0.1 , color = "white" ,fill = "red", stat = "identity")+
+  labs(x ="Carrier",
+       y =  "Arr delay mean" ,
+       title = "Carrier wise Arr delay")
+
+## Origin wise arrival delay
+ggplot( )+
+  geom_bar(destarrdel[1:10,] ,mapping = (aes(   reorder(x=dest,-adelay) , y = adelay  )),
+           size = 0.1 , color = "white" ,fill = "magenta", stat = "identity")+
+  labs(x ="Destination",
+       y =  "Arr delay mean" ,
+       title = "Dest wise Arr delay")
+
+## dest wise dep delay
+ggplot( )+
+  geom_bar(destdepdel[1:10,] ,mapping = (aes(   reorder(x=dest,-ddelay) , y = ddelay  )),
+           size = 0.1 , color = "white" ,fill = "blue", stat = "identity")+
+  labs(x ="Destination",
+       y =  "Dep delay mean" ,
+       title = "Dest wise Dep delay")
+
+```
+
+### Findings
+
+* The OO , YV, EV, 9E , F9 are the carriers with more Departure and Arrival delays.
+* TVC, TUL, BHM , TYS are the destinations with more Departure and Arrival delays.
+
